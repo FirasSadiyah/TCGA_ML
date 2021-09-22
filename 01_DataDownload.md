@@ -3,12 +3,12 @@ title: "Data Download"
 output: html_notebook
 ---
 
-
-
-
-
-
-
+```r
+# libraries
+library(tidyverse)
+library(TCGAbiolinks)
+library(kableExtra)
+```
 
 ```r
 # retrieve a list of TCGA projects
