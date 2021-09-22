@@ -1,5 +1,5 @@
 ---
-title: "GeneExpression"
+title: "DifferentialExpression"
 output: html_notebook
 ---
 
@@ -8,601 +8,11 @@ output: html_notebook
 
 
 ```r
-library(tidyverse)
-library(DESeq2)
-library(apeglm)
-library(PCAtools)
-library(EnhancedVolcano)
 library(viridis)
-library(pheatmap)
+library(EnhancedVolcano)
 library(org.Hs.eg.db)
 library(umap)
 source("./code/ens2refseq.R")
-```
-
-
-
-```r
-# load the data
-LUSC.exp <- readRDS("./RData/LUSC_exp.RDS")
-```
-
-## Gene count exploatory
-
-
-```r
-dim(assay(LUSC.exp))
-```
-
-```
-## [1] 56602   551
-```
-Let's check the percentage of zero counts
-
-
-```r
-counts <- assay(LUSC.exp)
-dim(counts)
-```
-
-```
-## [1] 56602   551
-```
-
-```r
-counts.zeroPercent <- 100 * apply(counts == 0, 1, sum) / ncol(counts)
-summary(counts.zeroPercent)
-```
-
-```
-##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max.
-##    0.00    0.00   31.40   42.18   88.20  100.00
-```
-
-```r
-counts.zeroPercent %>%
-  as.data.frame() %>%
-  ggplot() +
-  geom_histogram(aes(x = .), fill = '#1D7373', col = 'black', stat="bin", bins = 30 ) +
-  geom_vline(xintercept = 85, colour = 'red', linetype = 'dashed') +
-  labs(x = 'Percente of samples', y = 'Number of genes', title = 'Filter on the percentage of zero counts') +
-  theme_classic()
-```
-
-![plot of chunk unnamed-chunk-6](fig/unnamed-chunk-6-1.png)
-
-Let's aim to filter out genes that has zeros in more than 85% of the samples
-
-Now, let's plot the maximum count per gene
-
-
-```r
-counts.maxPerGene <- apply(counts, 1, max)
-summary(counts.maxPerGene)
-```
-
-```
-##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max.
-##       0      10      69    7863    2695 3826288
-```
-
-```r
-counts.maxPerGene %>%
-  as.data.frame %>%
-  ggplot() +
-  geom_histogram(aes(x = .), fill = '#1D7373', col = 'black', stat="bin", bins = 50 ) +
-  labs(x = 'Counts', y = 'Number of genes', title = 'Filter on the max count per gene') +
-  theme_classic()
-```
-
-![plot of chunk unnamed-chunk-8](fig/unnamed-chunk-8-11.png)
-The distribution has extreme values and therefore it is skewed distribution. One way to adjust for this is to take the shifted log2, i.e. log2(count + 1) where 1 is a pseudo value to avoid log2(0).
-
-
-```r
-counts.maxPerGene.log2 <- log2(counts.maxPerGene + 1)
-```
-
-Let's plot the comparison
-
-
-```r
-gridExtra::grid.arrange(
-    counts.maxPerGene %>%
-        as.data.frame() %>%
-        ggplot() +
-        geom_histogram(aes(x = .), fill = '#1D7373', col = 'black', stat="bin", bins = 50 ) +
-        labs(x = 'Counts', y = 'Number of genes', title = 'Raw counts per gene') +
-        theme_classic(),
-
-    counts.maxPerGene.log2 %>%
-        as.data.frame() %>%
-        ggplot() +
-        geom_histogram(aes(x = .), fill = '#1D7373', col = 'black', stat="bin", bins = 50 ) +
-        geom_vline(xintercept = log2(10), colour = 'red', linetype = 'solid', size = 0.8) +
-        labs(x = 'log2(counts+1)', y = 'Number of genes', title = 'Log2-transformed max counts per gene') +
-        theme_classic(),
-    nrow = 2)
-```
-
-![plot of chunk unnamed-chunk-10](fig/unnamed-chunk-10-11.png)
-
-Let's discard 'undetected' genes, i.e. the genes which have zero counts in at least 95% of the samples, or the genes with a maximal count less than 3. This would lead to discarding 10052 genes.
-
-
-```r
-dim(LUSC.exp)                                                                 # (56602, 551)
-```
-
-```
-## [1] 56602   551
-```
-
-```r
-dim(LUSC.exp[counts.maxPerGene.log2 > log2(10)])                              # (42497, 551) -> -14105
-```
-
-```
-## [1] 42497   551
-```
-
-```r
-dim(LUSC.exp[counts.zeroPercent <= 95])                                       # (46874, 551) -> -9728
-```
-
-```
-## [1] 46874   551
-```
-
-```r
-dim(LUSC.exp[counts.zeroPercent <= 95 & counts.maxPerGene.log2 > log2(10)])   # (40764, 551) -> -15838
-```
-
-```
-## [1] 40764   551
-```
-
-
-```r
-LUSC.exp.filt <- LUSC.exp[counts.zeroPercent <= 95 & counts.maxPerGene.log2 > log2(10)]
-LUSC.exp.filt
-```
-
-```
-## class: RangedSummarizedExperiment
-## dim: 40764 551
-## metadata(1): data_release
-## assays(1): HTSeq - Counts
-## rownames(40764): ENSG00000000003 ENSG00000000005 ... ENSG00000281912
-##   ENSG00000281920
-## rowData names(3): ensembl_gene_id external_gene_name
-##   original_ensembl_gene_id
-## colnames(551): TCGA-94-7943-01A-11R-2187-07
-##   TCGA-68-8251-01A-11R-2296-07 ... TCGA-MF-A522-01A-11R-A262-07
-##   TCGA-51-4079-01A-01R-1100-07
-## colData names(80): barcode patient ... paper_Homozygous.Deletions
-##   paper_Expression.Subtype
-```
-
-
-## Differential expression
-
-Let's create a DESeqDataSet object and taking `shortLetterCode` representing the tissue type (normal vs tumour) for the design.
-
-
-```r
-# to construct the DESeqDataSet object, we need a design
-colData(LUSC.exp.filt)$shortLetterCode <- as.factor(colData(LUSC.exp.filt)$shortLetterCode)
-```
-The reference level is `NT` representing the normal tissue, so no need to adjust the levels.
-
-
-```r
-# let's construct the DESeqDataSet object
-dds <- DESeq2::DESeqDataSet(LUSC.exp.filt, design = ~ shortLetterCode)
-```
-
-```
-## renaming the first element in assays to 'counts'
-```
-
-```
-## converting counts to integer mode
-```
-
-```r
-dds
-```
-
-```
-## class: DESeqDataSet
-## dim: 40764 551
-## metadata(2): data_release version
-## assays(1): counts
-## rownames(40764): ENSG00000000003 ENSG00000000005 ... ENSG00000281912
-##   ENSG00000281920
-## rowData names(3): ensembl_gene_id external_gene_name
-##   original_ensembl_gene_id
-## colnames(551): TCGA-94-7943-01A-11R-2187-07
-##   TCGA-68-8251-01A-11R-2296-07 ... TCGA-MF-A522-01A-11R-A262-07
-##   TCGA-51-4079-01A-01R-1100-07
-## colData names(80): barcode patient ... paper_Homozygous.Deletions
-##   paper_Expression.Subtype
-```
-
-
-```r
-# keep only rows that have at least 10 reads total
-table(rowSums(counts(dds)) >= 100)
-```
-
-```
-##
-## FALSE  TRUE
-##  1012 39752
-```
-
-```r
-# rowSums(counts(dds, normalized=TRUE) >= X ) >= Y
-# keep genes with Y or more sample that have normalised count X or more
-table(rowSums(counts(dds, normalized=F) >= 5 ) >= 10)
-```
-
-```
-##
-## FALSE  TRUE
-##  4299 36465
-```
-
-
-
-```r
-# run to save computing time, otherwise no need to prior filtering!
-keep <- rowSums(counts(dds)) >= 100
-dds <- dds[keep, ]
-table(rowSums(counts(dds)) >= 100)
-```
-
-```
-##
-##  TRUE
-## 39752
-```
-
-
-Before running the differential analysis, let's explore the gene counts in a PCA plot. First, let's transform the raw read counts using VST
-
-
-```r
-dds.vst <- DESeq2::vst(dds, blind = F)
-dds.vst
-```
-
-```
-## class: DESeqTransform
-## dim: 39752 551
-## metadata(2): data_release version
-## assays(1): ''
-## rownames(39752): ENSG00000000003 ENSG00000000005 ... ENSG00000281912
-##   ENSG00000281920
-## rowData names(7): ensembl_gene_id external_gene_name ... allZero
-##   dispFit
-## colnames(551): TCGA-94-7943-01A-11R-2187-07
-##   TCGA-68-8251-01A-11R-2296-07 ... TCGA-MF-A522-01A-11R-A262-07
-##   TCGA-51-4079-01A-01R-1100-07
-## colData names(81): barcode patient ... paper_Expression.Subtype
-##   sizeFactor
-```
-Let's plot the variance of the first components for the dataset
-
-
-```r
-dds.pca <- PCAtools::pca(assay(dds.vst), metadata = colData(LUSC.exp.filt))
-```
-Let's do a scree plot for the first 30 components
-
-
-```r
-screeplot(dds.pca,
-          components = getComponents(dds.pca, 1:20),
-          axisLabSize = 18, titleLabSize = 22) +
-  theme_classic() +
-  theme(axis.text.x = element_text(angle = 45, hjust=1))
-```
-
-![plot of chunk unnamed-chunk-19](fig/unnamed-chunk-19-1.png)
-
-We can see that the first component is responsible for almost 15% of the variation, while the second principle component is responsible for at most 5%. The eclipses represent 95% confidence.
-
-Let's plot a PCA plot, and colour by the tissue type, i.e. normal vs tumour
-
-
-```r
-#DESeq2::plotPCA(dds.vst, intgroup = "shortLetterCode") + theme_classic()
-biplot(dds.pca,
-       colby = 'shortLetterCode',
-       lab = NULL,
-       ellipse = TRUE,
-       ellipseLevel = 0.95,
-       ellipseFill = TRUE,
-       ellipseAlpha = 1/8,
-       ellipseLineSize = 1.0) +
-  theme_classic()
-```
-
-![plot of chunk unnamed-chunk-20](fig/unnamed-chunk-20-11.png)
-
-Great, we have good separation between the two tissue types.
-
-Let's explore the other variables.
-
-- What about gender?
-
-
-```r
-#DESeq2::plotPCA(dds.vst, intgroup = "gender") + theme_classic()
-biplot(dds.pca,
-       colby = 'gender',
-       lab = NULL,
-       ellipse = TRUE,
-       ellipseLevel = 0.95,
-       ellipseFill = TRUE,
-       ellipseAlpha = 1/8,
-       ellipseLineSize = 1.0) +
-  theme_classic()
-```
-
-![plot of chunk unnamed-chunk-21](fig/unnamed-chunk-21-1.png)
-
-- What about tumour stage?
-
-
-```r
-#DESeq2::plotPCA(dds.vst, intgroup = "tumor_stage") + theme_classic()
-biplot(dds.pca,
-       colby = 'tumor_stage',
-       lab = NULL,
-       ellipse = FALSE,
-       ellipseLevel = 0.95,
-       ellipseFill = TRUE,
-       ellipseAlpha = 1/8,
-       ellipseLineSize = 1.0) +
-  theme_classic()
-```
-
-![plot of chunk unnamed-chunk-22](fig/unnamed-chunk-22-11.png)
-
-- What about the vital status?
-
-
-```r
-#DESeq2::plotPCA(dds.vst, intgroup = "vital_status") + theme_classic
-biplot(dds.pca,
-       colby = 'vital_status',
-       lab = NULL,
-       ellipse = TRUE,
-       ellipseLevel = 0.95,
-       ellipseFill = TRUE,
-       ellipseAlpha = 1/8,
-       ellipseLineSize = 1.0) +
-  theme_classic()
-```
-
-![plot of chunk unnamed-chunk-23](fig/unnamed-chunk-23-1.png)
-
-- What about the race?
-
-
-```r
-#DESeq2::plotPCA(dds.vst, intgroup = "race") + theme_classic()
-biplot(dds.pca,
-       colby = 'race',
-       lab = NULL,
-       ellipse = FALSE,
-       ellipseLevel = 0.95,
-       ellipseFill = TRUE,
-       ellipseAlpha = 1/8,
-       ellipseLineSize = 1.0) +
-  theme_classic()
-```
-
-![plot of chunk unnamed-chunk-24](fig/unnamed-chunk-24-1.png)
-
-None of these variables are responsible for the separation on PC1 vs. PC2.
-Let's have a look at the top 10 possible combination
-
-
-```r
-pairsplot(dds.pca,
-          components = getComponents(dds.pca, c(1:10)),
-          triangle = TRUE, trianglelabSize = 12,
-          hline = 0, vline = 0,
-          pointSize = 0.4,
-          gridlines.major = FALSE, gridlines.minor = FALSE,
-          colby = 'shortLetterCode',
-          title = 'Pairs plot', plotaxes = FALSE,
-          margingaps = unit(c(-0.01, -0.01, -0.01, -0.01), 'cm'))
-```
-
-```
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-```
-
-![plot of chunk unnamed-chunk-25](fig/unnamed-chunk-25-1.png)
-
-
-Let's run hierarchical clustering to visualise the similarities between samples in terms of their gene expression profile. I will not plot all samples, but will limit this analysis to 20 normal samples.
-
-
-```r
-set.seed(2)
-selectedNormSamples <- sample(x = 1:ncol(assay(dds.vst)[, dds.vst$shortLetterCode == 'NT']),
-                              size = 20,
-                              replace = FALSE)
-
-assay(dds.vst)[, selectedNormSamples] %>%
-  t() %>%
-  dist() %>%
-  as.matrix() -> dds.vst.dist
-
-
-pheatmap(dds.vst.dist,
-         show_rownames  = FALSE,
-         show_colnames  = FALSE,
-         col = colorRampPalette( rev(RColorBrewer::brewer.pal(9, "Blues")) )(255) )
-```
-
-![plot of chunk unnamed-chunk-26](fig/unnamed-chunk-26-1.png)
-
-
-
-Let's run the differentiation analysis
-
-
-```r
-dds <- DESeq(dds)
-```
-
-```
-## estimating size factors
-```
-
-```
-## estimating dispersions
-```
-
-```
-## gene-wise dispersion estimates
-```
-
-```
-## mean-dispersion relationship
-```
-
-```
-## final dispersion estimates
-```
-
-```
-## fitting model and testing
-```
-
-```
-## -- replacing outliers and refitting for 4570 genes
-## -- DESeq argument 'minReplicatesForReplace' = 7
-## -- original counts are preserved in counts(dds)
-```
-
-```
-## estimating dispersions
-```
-
-```
-## fitting model and testing
-```
-
-
-```r
-saveRDS(object = dds, file = "./RData/LUSC_exp_dds.RDS")
 ```
 
 
@@ -641,16 +51,16 @@ dim(counts.norm.log2)
 # let's plot the log2 non-normalised read counts and log2 normalised read counts
 gridExtra::grid.arrange(
     counts.log2 %>%
-        as.data.frame() %>%
-        stack() %>%
+        as.data.frame() %>% 
+        stack() %>% 
         ggplot() +
         geom_histogram(aes(x = values), fill = '#1D7373', col = 'black', stat="bin", bins = 60 ) +
         labs(x = 'log2(raw counts + 1)', y = 'Number of genes', title = 'Log2-transformed raw counts') +
         theme_classic(),
-
-    counts.norm.log2 %>%
-        as.data.frame() %>%
-        stack() %>%
+    
+    counts.norm.log2 %>% 
+        as.data.frame() %>% 
+        stack() %>% 
         ggplot() +
         geom_histogram(aes(x = values), fill = '#1D7373', col = 'black', stat="bin", bins = 60 ) +
         labs(x = 'log2(normalised counts + 1)', y = 'Number of genes', title = 'Log2-transformed normalised counts') +
@@ -658,7 +68,7 @@ gridExtra::grid.arrange(
     nrow = 2)
 ```
 
-![plot of chunk unnamed-chunk-32](fig/unnamed-chunk-32-1.png)
+![plot of chunk 04-DifferentialExpression-5](fig/04-DifferentialExpression-5-1.png)
 
 
 
@@ -680,10 +90,10 @@ selectedSamples
 
 ```r
 gridExtra::grid.arrange(
-counts.log2 %>%
-  as.data.frame() %>%
-  dplyr::select(selectedSamples) %>%
-  stack() %>%
+counts.log2 %>% 
+  as.data.frame() %>% 
+  dplyr::select(selectedSamples) %>% 
+  stack() %>% 
   ggplot() +
   geom_boxplot(aes(x = ind, y = values, fill = ind)) +
   scale_x_discrete(label=function(x) abbreviate(x, minlength=15)) +
@@ -692,10 +102,10 @@ counts.log2 %>%
   coord_flip() +
   theme_classic() +
   theme(legend.position="none"),
-counts.norm.log2 %>%
-  as.data.frame() %>%
-  dplyr::select(selectedSamples) %>%
-  stack() %>%
+counts.norm.log2 %>% 
+  as.data.frame() %>% 
+  dplyr::select(selectedSamples) %>% 
+  stack() %>% 
   ggplot() +
   geom_boxplot(aes(x = ind, y = values, fill = ind)) +
   scale_x_discrete(label=function(x) abbreviate(x, minlength=15)) +
@@ -704,18 +114,11 @@ counts.norm.log2 %>%
   coord_flip() +
   theme_classic() +
   theme(legend.position="none"),
-
+  
 ncol = 2)
 ```
 
-```
-## Note: Using an external vector in selections is ambiguous.
-## ℹ Use `all_of(selectedSamples)` instead of `selectedSamples` to silence this message.
-## ℹ See <https://tidyselect.r-lib.org/reference/faq-external-vector.html>.
-## This message is displayed once per session.
-```
-
-![plot of chunk unnamed-chunk-34](fig/unnamed-chunk-34-1.png)
+![plot of chunk 04-DifferentialExpression-7](fig/04-DifferentialExpression-7-1.png)
 
 
 ```r
@@ -725,8 +128,8 @@ res
 ```
 
 ```
-## log2 fold change (MLE): shortLetterCode TP vs NT
-## Wald test p-value: shortLetterCode TP vs NT
+## log2 fold change (MLE): shortLetterCode TP vs NT 
+## Wald test p-value: shortLetterCode TP vs NT 
 ## DataFrame with 39752 rows and 6 columns
 ##                   baseMean log2FoldChange     lfcSE      stat       pvalue
 ##                  <numeric>      <numeric> <numeric> <numeric>    <numeric>
@@ -761,7 +164,7 @@ summary(res)
 ```
 
 ```
-##
+## 
 ## out of 39752 with nonzero total read count
 ## adjusted p-value < 0.001
 ## LFC > 0 (up)       : 13810, 35%
@@ -787,20 +190,20 @@ Let's extract the results from the `dds` object.
 #let's add the HGNC symbol to the dds results
 resSymbol <- ens2refseq(row.names(res))
 
-res %>%
-  as.data.frame() %>%
+res %>% 
+  as.data.frame() %>% 
   mutate(baseMean = signif(baseMean, digits = 3),
          log2FoldChange = round(log2FoldChange, digits = 3),
          lfcSE  = round(lfcSE, digits = 3),
          stat   = round(stat, digits = 3),
          pvalue = signif(pvalue, digits = 3),
-         padj   = signif(padj, digits = 3)) %>%
-  mutate(ensembl_gene_id = row.names(res)) %>%
+         padj   = signif(padj, digits = 3)) %>% 
+  mutate(ensembl_gene_id = row.names(res)) %>%    
   merge(resSymbol, ., by = "ensembl_gene_id") -> resDF # merge with RefSeq genes
 
 
 # let's sort by log2FoldChange and then padj (decreasing)
-resDF %>%
+resDF %>% 
   arrange(desc(abs(log2FoldChange)), desc(padj)) -> resOrdDF
 resOrdDF
 ```
@@ -25826,8 +25229,8 @@ resTP
 ```
 
 ```
-## log2 fold change (MLE): shortLetterCode TP vs NT
-## Wald test p-value: shortLetterCode TP vs NT
+## log2 fold change (MLE): shortLetterCode TP vs NT 
+## Wald test p-value: shortLetterCode TP vs NT 
 ## DataFrame with 39752 rows and 6 columns
 ##                   baseMean log2FoldChange     lfcSE      stat       pvalue
 ##                  <numeric>      <numeric> <numeric> <numeric>    <numeric>
@@ -25862,7 +25265,7 @@ summary(resTP)
 ```
 
 ```
-##
+## 
 ## out of 39752 with nonzero total read count
 ## adjusted p-value < 0.001
 ## LFC > 0 (up)       : 13810, 35%
@@ -25880,20 +25283,20 @@ summary(resTP)
 #let's add the HGNC symbol to the dds results
 resTPSymbol <- ens2refseq(row.names(resTP))
 
-resTP %>%
-  as.data.frame() %>%
+resTP %>% 
+  as.data.frame() %>% 
   mutate(baseMean = signif(baseMean, digits = 3),
          log2FoldChange = round(log2FoldChange, digits = 3),
          lfcSE  = round(lfcSE, digits = 3),
          stat   = round(stat, digits = 3),
          pvalue = signif(pvalue, digits = 3),
-         padj   = signif(padj, digits = 3)) %>%
-  mutate(ensembl_gene_id = row.names(resTP)) %>%
+         padj   = signif(padj, digits = 3)) %>% 
+  mutate(ensembl_gene_id = row.names(resTP)) %>%    
   merge(resTPSymbol, ., by = "ensembl_gene_id") -> resTPDF # merge with RefSeq genes
 
 
 # let's sort by log2FoldChange and then padj (decreasing)
-resTPDF %>%
+resTPDF %>% 
   arrange(desc(abs(log2FoldChange)), desc(padj)) -> resTPOrdDF
 resTPOrdDF
 ```
@@ -50931,7 +50334,7 @@ DESeq2::plotMA(res, ylim = c(-11, 11), alpha = 0.001, main = "MA plot (unshrunke
 abline(h = c(-2, 2), col = "red", lwd = 2)
 ```
 
-![plot of chunk unnamed-chunk-41](fig/unnamed-chunk-41-1.png)
+![plot of chunk 04-DifferentialExpression-14](fig/04-DifferentialExpression-14-1.png)
 
 
 ```r
@@ -50940,7 +50343,7 @@ DESeq2::plotMA(res.shrink, ylim = c(-11, 11), alpha = 0.001, main = "MA plot (sh
 abline(h = c(-2, 2), col = "red", lwd = 2)
 ```
 
-![plot of chunk unnamed-chunk-42](fig/unnamed-chunk-42-1.png)
+![plot of chunk 04-DifferentialExpression-15](fig/04-DifferentialExpression-15-1.png)
 
 
 
@@ -50971,7 +50374,7 @@ EnhancedVolcano(resDF,
 ## increasing max.overlaps
 ```
 
-![plot of chunk unnamed-chunk-43](fig/unnamed-chunk-43-1.png)
+![plot of chunk 04-DifferentialExpression-16](fig/04-DifferentialExpression-16-1.png)
 
 
 Let's extract the top 20 genes in normal vs tumour
@@ -50979,9 +50382,9 @@ Let's extract the top 20 genes in normal vs tumour
 
 ```r
 # TP vs NT, i.e. (TP - NT)
-resTPDF %>%
+resTPDF %>% 
   filter(padj < 0.001 & log2FoldChange >= log2(2)) %>%  # expression higher in TP
-  drop_na() %>%
+  drop_na() %>% 
   arrange(desc(abs(log2FoldChange)), desc(padj)) -> resTPDF.top.TP
 
 resTPDF.top.TP
@@ -69129,9 +68532,9 @@ resTPDF.top.TP
 ```
 
 ```r
-resTPDF %>%
+resTPDF %>% 
   filter(padj < 0.001 & log2FoldChange <= -(2)) %>% # expression higher in NT
-  drop_na() %>%
+  drop_na() %>% 
   arrange(desc(abs(log2FoldChange)), desc(padj)) -> resTPDF.top.NT
 
 resTPDF.top.NT
@@ -73337,7 +72740,7 @@ resTPDF.top.NT
 hmSelect <- order(rowMeans(counts(dds,normalized=TRUE)), decreasing=TRUE)[1:20] # taking long time as full
 hmAnnCol <- as.data.frame(colData(dds)[,c("shortLetterCode","gender")])
 
-pheatmap(assay(dds)[hmSelect,],
+pheatmap(assay(dds)[hmSelect,], 
          cluster_rows   = TRUE,
          cluster_cols   = TRUE,
          show_rownames  = FALSE,
@@ -73345,7 +72748,7 @@ pheatmap(assay(dds)[hmSelect,],
          annotation_col = hmAnnCol)
 ```
 
-![plot of chunk unnamed-chunk-45](fig/unnamed-chunk-45-1.png)
+![plot of chunk 04-DifferentialExpression-18](fig/04-DifferentialExpression-18-1.png)
 
 Let's plot the `p` value for all tests.
 
@@ -73367,7 +72770,7 @@ text(x = c(0, length(h1$counts)), y = 0, label = paste(c(0,1)),
 legend("topright", fill=rev(colori), legend=rev(names(colori)))
 ```
 
-![plot of chunk unnamed-chunk-47](fig/unnamed-chunk-47-1.png)
+![plot of chunk 04-DifferentialExpression-20](fig/04-DifferentialExpression-20-1.png)
 
 
 Let's reduce the dimensionality
@@ -73376,8 +72779,8 @@ Let's reduce the dimensionality
 ```r
 # let's standarise the normalised count (z-score)
 set.seed(2)
-DESeq2::counts(dds, normalized = T) %>%
-  t() %>%
+DESeq2::counts(dds, normalized = T) %>% 
+  t() %>% 
   scale() -> counts.norm.z
 ```
 
@@ -73387,16 +72790,16 @@ DESeq2::counts(dds, normalized = T) %>%
 # let's start with UMAP
 umap.proj <- umap::umap(counts.norm.z)
 
-umap.proj$layout %>%
+umap.proj$layout %>% 
   as.data.frame() %>%
   mutate(tissue = as.factor(dds$shortLetterCode),
          gender = as.factor(dds$gender),
-         cases = rownames(.)) %>%
-  ggplot(aes(x = V1, y = V2, colour = tissue)) +
+         cases = rownames(.)) %>% 
+  ggplot(aes(x = V1, y = V2, colour = tissue)) + 
   geom_jitter() +
   scale_color_manual(values=c("#2b83ba", "#d7191c"), "Tissue Type") +
     theme(plot.title = element_text(hjust=0.5, face = "bold", size = 15),
-          axis.title = element_blank(),
+          axis.title = element_blank(), 
           axis.text = element_text(size = 12),
           legend.title = element_text(face = "bold"),
           legend.text = element_text(size = 12),
@@ -73404,20 +72807,20 @@ umap.proj$layout %>%
           panel.border = element_rect(fill = NA, color = "black"))
 ```
 
-![plot of chunk unnamed-chunk-49](fig/unnamed-chunk-49-1.png)
+![plot of chunk 04-DifferentialExpression-22](fig/04-DifferentialExpression-22-1.png)
 
 
 ```r
-umap.proj$layout %>%
+umap.proj$layout %>% 
   as.data.frame() %>%
   mutate(tissue = as.factor(dds$shortLetterCode),
          gender = as.factor(dds$gender),
-         cases = rownames(.)) %>%
-  ggplot(aes(x = V1, y = V2, colour = gender)) +
+         cases = rownames(.)) %>% 
+  ggplot(aes(x = V1, y = V2, colour = gender)) + 
   geom_jitter() +
   scale_color_manual(values=c("#2b83ba", "#d7191c"), "Gender") +
     theme(plot.title = element_text(hjust=0.5, face = "bold", size = 15),
-          axis.title = element_blank(),
+          axis.title = element_blank(), 
           axis.text = element_text(size = 12),
           legend.title = element_text(face = "bold"),
           legend.text = element_text(size = 12),
@@ -73425,7 +72828,7 @@ umap.proj$layout %>%
           panel.border = element_rect(fill = NA, color = "black"))
 ```
 
-![plot of chunk unnamed-chunk-50](fig/unnamed-chunk-50-1.png)
+![plot of chunk 04-DifferentialExpression-23](fig/04-DifferentialExpression-23-1.png)
 
 
 ```r
@@ -73436,16 +72839,16 @@ tsne.proj <- Rtsne::Rtsne(counts.norm.z)
 
 
 ```r
-tsne.proj$Y %>%
+tsne.proj$Y %>% 
   as.data.frame() %>%
   mutate(tissue = as.factor(dds$shortLetterCode),
          gender = as.factor(dds$gender),
-         cases = rownames(.)) %>%
-  ggplot(aes(x = V1, y = V2, colour = tissue)) +
+         cases = rownames(.)) %>% 
+  ggplot(aes(x = V1, y = V2, colour = tissue)) + 
   geom_jitter() +
   scale_color_manual(values=c("#2b83ba", "#d7191c"), "Tissue Type") +
     theme(plot.title = element_text(hjust=0.5, face = "bold", size = 15),
-          axis.title = element_blank(),
+          axis.title = element_blank(), 
           axis.text = element_text(size = 12),
           legend.title = element_text(face = "bold"),
           legend.text = element_text(size = 12),
@@ -73453,20 +72856,20 @@ tsne.proj$Y %>%
           panel.border = element_rect(fill = NA, color = "black"))
 ```
 
-![plot of chunk unnamed-chunk-52](fig/unnamed-chunk-52-1.png)
+![plot of chunk 04-DifferentialExpression-25](fig/04-DifferentialExpression-25-1.png)
 
 
 ```r
-tsne.proj$Y %>%
+tsne.proj$Y %>% 
   as.data.frame() %>%
   mutate(tissue = as.factor(dds$shortLetterCode),
          gender = as.factor(dds$gender),
-         cases = rownames(.)) %>%
-  ggplot(aes(x = V1, y = V2, colour = gender)) +
+         cases = rownames(.)) %>% 
+  ggplot(aes(x = V1, y = V2, colour = gender)) + 
   geom_jitter() +
   scale_color_manual(values=c("#2b83ba", "#d7191c"), "Gender") +
     theme(plot.title = element_text(hjust=0.5, face = "bold", size = 15),
-          axis.title = element_blank(),
+          axis.title = element_blank(), 
           axis.text = element_text(size = 12),
           legend.title = element_text(face = "bold"),
           legend.text = element_text(size = 12),
@@ -73474,7 +72877,7 @@ tsne.proj$Y %>%
           panel.border = element_rect(fill = NA, color = "black"))
 ```
 
-![plot of chunk unnamed-chunk-53](fig/unnamed-chunk-53-1.png)
+![plot of chunk 04-DifferentialExpression-26](fig/04-DifferentialExpression-26-1.png)
 
 
 
@@ -73496,17 +72899,17 @@ glimpse(DGE)
 colnames(dds.vst)[dds.vst$shortLetterCode == 'NT'] -> normalIDs
 DGESymbol <- ens2refseq(row.names(DGE))
 
-DGE %>%
-  reshape2::melt() %>%
-  as.data.frame() %>%
-  dplyr::rename_at(vars(c('Var1', 'Var2', 'value')), ~c('gene', 'sample', 'count_norm')) %>%
+DGE %>% 
+  reshape2::melt() %>% 
+  as.data.frame() %>% 
+  dplyr::rename_at(vars(c('Var1', 'Var2', 'value')), ~c('gene', 'sample', 'count_norm')) %>% 
   mutate(group = case_when(sample %in% normalIDs ~ "Normal",
-                           TRUE ~ "Tumour")) %>%
+                           TRUE ~ "Tumour")) %>% 
   right_join(DGESymbol, ., by = c('ensembl_gene_id' = 'gene')) %>%
   ggplot(aes(x = hgnc_symbol, y = count_norm, fill = group)) +
   geom_boxplot(width = .85, outlier.shape = NA, position = 'dodge') +
-  ggpubr::stat_compare_means(group = 'count_norm',
-                             label = "p.signif",
+  ggpubr::stat_compare_means(group = 'count_norm', 
+                             label = "p.signif", 
                              method = "t.test") +
   scale_fill_manual(values = c("#B47846","#4682B4")) +
   labs(x = 'Gene', y = 'Counts (normalised)', Title = 'Counts per gene in tumour vs normal tissue') +
@@ -73514,7 +72917,7 @@ DGE %>%
   theme(axis.text.x = element_text(angle = 45, hjust=1))
 ```
 
-![plot of chunk unnamed-chunk-55](fig/unnamed-chunk-55-1.png)
+![plot of chunk 04-DifferentialExpression-28](fig/04-DifferentialExpression-28-1.png)
 
 
 

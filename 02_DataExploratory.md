@@ -185,7 +185,7 @@ visdat::vis_miss(as.data.frame(LUSC.exp@colData),
                  cluster = TRUE)
 ```
 
-![plot of chunk unnamed-chunk-8](fig/unnamed-chunk-8-1.png)
+![plot of chunk 02-DataExploratory-8](fig/02-DataExploratory-8-1.png)
 
 
 
@@ -203,7 +203,7 @@ LUSC.clin %>%
   theme_classic()
 ```
 
-![plot of chunk unnamed-chunk-9](fig/unnamed-chunk-9-1.png)
+![plot of chunk 02-DataExploratory-9](fig/02-DataExploratory-9-1.png)
 
 The number of tumour samples is almost 10X compared to the number of normal samples.
 
@@ -227,7 +227,7 @@ LUSC.clin %>%
 ## `summarise()` has grouped output by 'shortLetterCode'. You can override using the `.groups` argument.
 ```
 
-![plot of chunk unnamed-chunk-10](fig/unnamed-chunk-10-1.png)
+![plot of chunk 02-DataExploratory-10](fig/02-DataExploratory-10-1.png)
 
 
 ```r
@@ -249,7 +249,7 @@ LUSC.clin %>%
 ## `summarise()` has grouped output by 'shortLetterCode'. You can override using the `.groups` argument.
 ```
 
-![plot of chunk unnamed-chunk-11](fig/unnamed-chunk-11-1.png)
+![plot of chunk 02-DataExploratory-11](fig/02-DataExploratory-11-1.png)
 
 
 
@@ -267,7 +267,7 @@ LUSC.clin %>%
   theme_classic()
 ```
 
-![plot of chunk unnamed-chunk-12](fig/unnamed-chunk-12-1.png)
+![plot of chunk 02-DataExploratory-12](fig/02-DataExploratory-12-1.png)
 
 The number of sample from female cases is almost 1/3 of total cases in the cohort.
 
@@ -310,7 +310,7 @@ ggplot(LUSC.ageByGender, aes(x = age, y = count, fill = gender)) +
 ## Warning: Removed 1 rows containing missing values (position_stack).
 ```
 
-![plot of chunk unnamed-chunk-13](fig/unnamed-chunk-13-1.png)
+![plot of chunk 02-DataExploratory-13](fig/02-DataExploratory-13-1.png)
 
 Although the samples from female cases are under represented in this cohort, the distribution of they are distributed over age similar to the samples from male cases.
 
@@ -335,7 +335,7 @@ LUSC.clin %>%
 ## `summarise()` has grouped output by 'tumor_stage'. You can override using the `.groups` argument.
 ```
 
-![plot of chunk unnamed-chunk-14](fig/unnamed-chunk-14-1.png)
+![plot of chunk 02-DataExploratory-14](fig/02-DataExploratory-14-1.png)
 
 The most represented stage is 'Stage ib', followed by 'Stage iib'. There are few cases which are not reported in term of their tumour stage.
 
@@ -359,7 +359,7 @@ LUSC.clin %>%
 ## `summarise()` has grouped output by 'vital_status'. You can override using the `.groups` argument.
 ```
 
-![plot of chunk unnamed-chunk-15](fig/unnamed-chunk-15-1.png)
+![plot of chunk 02-DataExploratory-15](fig/02-DataExploratory-15-1.png)
 
 It seems that number of alive and dead are close to each other.
 
@@ -378,7 +378,7 @@ LUSC.clin %>%
   theme_classic()
 ```
 
-![plot of chunk unnamed-chunk-16](fig/unnamed-chunk-16-1.png)
+![plot of chunk 02-DataExploratory-16](fig/02-DataExploratory-16-1.png)
 
 The cohort consists mainly of white subjects, while there are 118 cases which are not reported. Both the Asian and the black/African american are under represented in this cohort.
 
@@ -402,7 +402,7 @@ LUSC.clin %>%
 ## `summarise()` has grouped output by 'vital_status'. You can override using the `.groups` argument.
 ```
 
-![plot of chunk unnamed-chunk-17](fig/unnamed-chunk-17-1.png)
+![plot of chunk 02-DataExploratory-17](fig/02-DataExploratory-17-1.png)
 
 
 ```r
@@ -424,7 +424,7 @@ LUSC.clin %>%
 ## `summarise()` has grouped output by 'gender'. You can override using the `.groups` argument.
 ```
 
-![plot of chunk unnamed-chunk-18](fig/unnamed-chunk-18-1.png)
+![plot of chunk 02-DataExploratory-18](fig/02-DataExploratory-18-1.png)
 
 ```r
 summary(LUSC.clin$years_smoked)
@@ -454,7 +454,7 @@ LUSC.clin %>%
 ## Warning: Removed 1 rows containing missing values (position_stack).
 ```
 
-![plot of chunk unnamed-chunk-20](fig/unnamed-chunk-20-1.png)
+![plot of chunk 02-DataExploratory-20](fig/02-DataExploratory-20-1.png)
 
 Let's plot the smokers vs non-smokers
 
@@ -502,7 +502,7 @@ LUSC.clin %>%
   theme(axis.text.x = element_text(angle = 45, hjust=1))
 ```
 
-![plot of chunk unnamed-chunk-22](fig/unnamed-chunk-22-1.png)
+![plot of chunk 02-DataExploratory-22](fig/02-DataExploratory-22-1.png)
 
 Among the cases with available data about their smoking habits, we can see that most ( ~ 92%) of the cases are smokers. It is to be expected as it's lung cancer.
 
@@ -527,71 +527,97 @@ sessionInfo()
 ## [8] methods   base     
 ## 
 ## other attached packages:
-##  [1] kableExtra_1.3.4            TCGAbiolinks_2.20.0        
-##  [3] viridis_0.6.1               viridisLite_0.4.0          
-##  [5] DESeq2_1.32.0               SummarizedExperiment_1.22.0
-##  [7] Biobase_2.52.0              MatrixGenerics_1.4.3       
-##  [9] matrixStats_0.60.1          GenomicRanges_1.44.0       
-## [11] GenomeInfoDb_1.28.4         IRanges_2.26.0             
-## [13] S4Vectors_0.30.0            BiocGenerics_0.38.0        
-## [15] forcats_0.5.1               stringr_1.4.0              
-## [17] dplyr_1.0.7                 purrr_0.3.4                
-## [19] readr_2.0.1                 tidyr_1.1.3                
-## [21] tibble_3.1.4                ggplot2_3.3.5              
-## [23] tidyverse_1.3.1            
+##  [1] umap_0.2.7.0                org.Hs.eg.db_3.13.0        
+##  [3] AnnotationDbi_1.54.1        pheatmap_1.0.12            
+##  [5] EnhancedVolcano_1.10.0      PCAtools_2.4.0             
+##  [7] ggrepel_0.9.1               apeglm_1.14.0              
+##  [9] kableExtra_1.3.4            TCGAbiolinks_2.20.0        
+## [11] viridis_0.6.1               viridisLite_0.4.0          
+## [13] DESeq2_1.32.0               SummarizedExperiment_1.22.0
+## [15] Biobase_2.52.0              MatrixGenerics_1.4.3       
+## [17] matrixStats_0.60.1          GenomicRanges_1.44.0       
+## [19] GenomeInfoDb_1.28.4         IRanges_2.26.0             
+## [21] S4Vectors_0.30.0            BiocGenerics_0.38.0        
+## [23] forcats_0.5.1               stringr_1.4.0              
+## [25] dplyr_1.0.7                 purrr_0.3.4                
+## [27] readr_2.0.1                 tidyr_1.1.3                
+## [29] tibble_3.1.4                ggplot2_3.3.5              
+## [31] tidyverse_1.3.1            
 ## 
 ## loaded via a namespace (and not attached):
-##   [1] colorspace_2.0-2            ellipsis_0.3.2             
-##   [3] visdat_0.5.3                rprojroot_2.0.2            
-##   [5] XVector_0.32.0              fs_1.5.0                   
-##   [7] rstudioapi_0.13             farver_2.1.0               
-##   [9] bit64_4.0.5                 AnnotationDbi_1.54.1       
-##  [11] fansi_0.5.0                 lubridate_1.7.10           
-##  [13] xml2_1.3.2                  splines_4.1.1              
-##  [15] R.methodsS3_1.8.1           cachem_1.0.6               
-##  [17] geneplotter_1.70.0          knitr_1.34                 
-##  [19] jsonlite_1.7.2              broom_0.7.9                
-##  [21] annotate_1.70.0             dbplyr_2.1.1               
-##  [23] png_0.1-7                   R.oo_1.24.0                
-##  [25] compiler_4.1.1              httr_1.4.2                 
-##  [27] backports_1.2.1             assertthat_0.2.1           
-##  [29] Matrix_1.3-4                fastmap_1.1.0              
-##  [31] cli_3.0.1                   htmltools_0.5.2            
-##  [33] prettyunits_1.1.1           tools_4.1.1                
-##  [35] gtable_0.3.0                glue_1.4.2                 
-##  [37] GenomeInfoDbData_1.2.6      rappdirs_0.3.3             
-##  [39] Rcpp_1.0.7                  cellranger_1.1.0           
-##  [41] vctrs_0.3.8                 Biostrings_2.60.2          
-##  [43] svglite_2.0.0               xfun_0.26                  
-##  [45] rvest_1.0.1                 lifecycle_1.0.0            
-##  [47] XML_3.99-0.7                zlibbioc_1.38.0            
-##  [49] scales_1.1.1                hms_1.1.0                  
-##  [51] RColorBrewer_1.1-2          curl_4.3.2                 
-##  [53] memoise_2.0.0               gridExtra_2.3              
-##  [55] downloader_0.4              biomaRt_2.48.3             
-##  [57] stringi_1.7.4               RSQLite_2.2.8              
-##  [59] highr_0.9                   genefilter_1.74.0          
-##  [61] filelock_1.0.2              BiocParallel_1.26.2        
-##  [63] systemfonts_1.0.2           rlang_0.4.11               
-##  [65] pkgconfig_2.0.3             bitops_1.0-7               
-##  [67] evaluate_0.14               TCGAbiolinksGUI.data_1.12.0
-##  [69] lattice_0.20-44             labeling_0.4.2             
-##  [71] bit_4.0.4                   tidyselect_1.1.1           
-##  [73] here_1.0.1                  plyr_1.8.6                 
-##  [75] magrittr_2.0.1              R6_2.5.1                   
-##  [77] generics_0.1.0              DelayedArray_0.18.0        
-##  [79] DBI_1.1.1                   pillar_1.6.2               
-##  [81] haven_2.4.3                 withr_2.4.2                
-##  [83] survival_3.2-13             KEGGREST_1.32.0            
-##  [85] RCurl_1.98-1.4              modelr_0.1.8               
-##  [87] crayon_1.4.1                utf8_1.2.2                 
-##  [89] BiocFileCache_2.0.0         rmarkdown_2.11             
-##  [91] tzdb_0.1.2                  progress_1.2.2             
-##  [93] locfit_1.5-9.4              grid_4.1.1                 
-##  [95] readxl_1.3.1                data.table_1.14.0          
-##  [97] blob_1.2.2                  webshot_0.5.2              
-##  [99] reprex_2.0.1                digest_0.6.27              
-## [101] xtable_1.8-4                R.utils_2.10.1             
-## [103] munsell_0.5.0
+##   [1] utf8_1.2.2                  reticulate_1.21            
+##   [3] R.utils_2.10.1              tidyselect_1.1.1           
+##   [5] RSQLite_2.2.8               grid_4.1.1                 
+##   [7] BiocParallel_1.26.2         Rtsne_0.15                 
+##   [9] munsell_0.5.0               ScaledMatrix_1.0.0         
+##  [11] withr_2.4.2                 colorspace_2.0-2           
+##  [13] filelock_1.0.2              ggalt_0.4.0                
+##  [15] highr_0.9                   knitr_1.34                 
+##  [17] rstudioapi_0.13             ggsignif_0.6.3             
+##  [19] Rttf2pt1_1.3.9              labeling_0.4.2             
+##  [21] bbmle_1.0.24                GenomeInfoDbData_1.2.6     
+##  [23] bit64_4.0.5                 farver_2.1.0               
+##  [25] rprojroot_2.0.2             downloader_0.4             
+##  [27] coda_0.19-4                 vctrs_0.3.8                
+##  [29] generics_0.1.0              xfun_0.26                  
+##  [31] BiocFileCache_2.0.0         R6_2.5.1                   
+##  [33] ggbeeswarm_0.6.0            rsvd_1.0.5                 
+##  [35] locfit_1.5-9.4              bitops_1.0-7               
+##  [37] cachem_1.0.6                DelayedArray_0.18.0        
+##  [39] assertthat_0.2.1            scales_1.1.1               
+##  [41] beeswarm_0.4.0              gtable_0.3.0               
+##  [43] beachmat_2.8.1              ash_1.0-15                 
+##  [45] rlang_0.4.11                genefilter_1.74.0          
+##  [47] systemfonts_1.0.2           splines_4.1.1              
+##  [49] rstatix_0.7.0               extrafontdb_1.0            
+##  [51] broom_0.7.9                 abind_1.4-5                
+##  [53] reshape2_1.4.4              modelr_0.1.8               
+##  [55] backports_1.2.1             extrafont_0.17             
+##  [57] tools_4.1.1                 namer_0.1.5                
+##  [59] ellipsis_0.3.2              RColorBrewer_1.1-2         
+##  [61] Rcpp_1.0.7                  plyr_1.8.6                 
+##  [63] sparseMatrixStats_1.4.2     progress_1.2.2             
+##  [65] zlibbioc_1.38.0             RCurl_1.98-1.4             
+##  [67] prettyunits_1.1.1           ggpubr_0.4.0               
+##  [69] openssl_1.4.5               cowplot_1.1.1              
+##  [71] haven_2.4.3                 fs_1.5.0                   
+##  [73] here_1.0.1                  magrittr_2.0.1             
+##  [75] data.table_1.14.0           RSpectra_0.16-0            
+##  [77] openxlsx_4.2.4              reprex_2.0.1               
+##  [79] mvtnorm_1.1-2               hms_1.1.0                  
+##  [81] TCGAbiolinksGUI.data_1.12.0 evaluate_0.14              
+##  [83] xtable_1.8-4                XML_3.99-0.7               
+##  [85] rio_0.5.27                  emdbook_1.3.12             
+##  [87] readxl_1.3.1                gridExtra_2.3              
+##  [89] compiler_4.1.1              biomaRt_2.48.3             
+##  [91] bdsmatrix_1.3-4             maps_3.3.0                 
+##  [93] KernSmooth_2.23-20          crayon_1.4.1               
+##  [95] R.oo_1.24.0                 htmltools_0.5.2            
+##  [97] tzdb_0.1.2                  geneplotter_1.70.0         
+##  [99] visdat_0.5.3                lubridate_1.7.10           
+## [101] DBI_1.1.1                   dbplyr_2.1.1               
+## [103] proj4_1.0-10.1              MASS_7.3-54                
+## [105] rappdirs_0.3.3              car_3.0-11                 
+## [107] Matrix_1.3-4                cli_3.0.1                  
+## [109] R.methodsS3_1.8.1           pkgconfig_2.0.3            
+## [111] foreign_0.8-81              numDeriv_2016.8-1.1        
+## [113] xml2_1.3.2                  svglite_2.0.0              
+## [115] annotate_1.70.0             vipor_0.4.5                
+## [117] dqrng_0.3.0                 webshot_0.5.2              
+## [119] XVector_0.32.0              rvest_1.0.1                
+## [121] digest_0.6.27               Biostrings_2.60.2          
+## [123] rmarkdown_2.11              cellranger_1.1.0           
+## [125] DelayedMatrixStats_1.14.3   curl_4.3.2                 
+## [127] lifecycle_1.0.0             jsonlite_1.7.2             
+## [129] carData_3.0-4               askpass_1.1                
+## [131] fansi_0.5.0                 pillar_1.6.2               
+## [133] lattice_0.20-44             ggrastr_0.2.3              
+## [135] KEGGREST_1.32.0             fastmap_1.1.0              
+## [137] httr_1.4.2                  survival_3.2-13            
+## [139] glue_1.4.2                  zip_2.2.0                  
+## [141] png_0.1-7                   bit_4.0.4                  
+## [143] stringi_1.7.4               blob_1.2.2                 
+## [145] BiocSingular_1.8.1          memoise_2.0.0              
+## [147] irlba_2.3.3
 ```
 
