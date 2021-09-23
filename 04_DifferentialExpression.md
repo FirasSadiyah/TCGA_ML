@@ -636,6 +636,120 @@ DGE %>%
 ![plot of chunk 04-DifferentialExpression-28](fig/04-DifferentialExpression-28-1.png)
 
 
+```r
+sessionInfo()
+```
+
+```
+## R version 4.1.1 (2021-08-10)
+## Platform: x86_64-apple-darwin20.5.0 (64-bit)
+## Running under: macOS Big Sur 11.6
+## 
+## Matrix products: default
+## BLAS/LAPACK: /usr/local/Cellar/openblas/0.3.17/lib/libopenblasp-r0.3.17.dylib
+## 
+## locale:
+## [1] en_GB.UTF-8/en_GB.UTF-8/en_GB.UTF-8/C/en_GB.UTF-8/en_GB.UTF-8
+## 
+## attached base packages:
+## [1] parallel  stats4    stats     graphics  grDevices utils     datasets 
+## [8] methods   base     
+## 
+## other attached packages:
+##  [1] umap_0.2.7.0                org.Hs.eg.db_3.13.0        
+##  [3] AnnotationDbi_1.54.1        pheatmap_1.0.12            
+##  [5] EnhancedVolcano_1.10.0      PCAtools_2.4.0             
+##  [7] ggrepel_0.9.1               apeglm_1.14.0              
+##  [9] kableExtra_1.3.4            TCGAbiolinks_2.20.0        
+## [11] viridis_0.6.1               viridisLite_0.4.0          
+## [13] DESeq2_1.32.0               SummarizedExperiment_1.22.0
+## [15] Biobase_2.52.0              MatrixGenerics_1.4.3       
+## [17] matrixStats_0.60.1          GenomicRanges_1.44.0       
+## [19] GenomeInfoDb_1.28.4         IRanges_2.26.0             
+## [21] S4Vectors_0.30.0            BiocGenerics_0.38.0        
+## [23] forcats_0.5.1               stringr_1.4.0              
+## [25] dplyr_1.0.7                 purrr_0.3.4                
+## [27] readr_2.0.1                 tidyr_1.1.3                
+## [29] tibble_3.1.4                ggplot2_3.3.5              
+## [31] tidyverse_1.3.1            
+## 
+## loaded via a namespace (and not attached):
+##   [1] utf8_1.2.2                  reticulate_1.21            
+##   [3] R.utils_2.10.1              tidyselect_1.1.1           
+##   [5] RSQLite_2.2.8               grid_4.1.1                 
+##   [7] BiocParallel_1.26.2         Rtsne_0.15                 
+##   [9] munsell_0.5.0               ScaledMatrix_1.0.0         
+##  [11] withr_2.4.2                 colorspace_2.0-2           
+##  [13] filelock_1.0.2              ggalt_0.4.0                
+##  [15] highr_0.9                   knitr_1.34                 
+##  [17] rstudioapi_0.13             ggsignif_0.6.3             
+##  [19] Rttf2pt1_1.3.9              labeling_0.4.2             
+##  [21] bbmle_1.0.24                GenomeInfoDbData_1.2.6     
+##  [23] bit64_4.0.5                 farver_2.1.0               
+##  [25] rprojroot_2.0.2             downloader_0.4             
+##  [27] coda_0.19-4                 vctrs_0.3.8                
+##  [29] generics_0.1.0              xfun_0.26                  
+##  [31] BiocFileCache_2.0.0         R6_2.5.1                   
+##  [33] ggbeeswarm_0.6.0            rsvd_1.0.5                 
+##  [35] locfit_1.5-9.4              bitops_1.0-7               
+##  [37] cachem_1.0.6                DelayedArray_0.18.0        
+##  [39] assertthat_0.2.1            scales_1.1.1               
+##  [41] beeswarm_0.4.0              gtable_0.3.0               
+##  [43] beachmat_2.8.1              ash_1.0-15                 
+##  [45] rlang_0.4.11                genefilter_1.74.0          
+##  [47] systemfonts_1.0.2           splines_4.1.1              
+##  [49] rstatix_0.7.0               extrafontdb_1.0            
+##  [51] broom_0.7.9                 abind_1.4-5                
+##  [53] reshape2_1.4.4              modelr_0.1.8               
+##  [55] backports_1.2.1             extrafont_0.17             
+##  [57] tools_4.1.1                 namer_0.1.5                
+##  [59] ellipsis_0.3.2              RColorBrewer_1.1-2         
+##  [61] Rcpp_1.0.7                  plyr_1.8.6                 
+##  [63] sparseMatrixStats_1.4.2     progress_1.2.2             
+##  [65] zlibbioc_1.38.0             RCurl_1.98-1.4             
+##  [67] prettyunits_1.1.1           ggpubr_0.4.0               
+##  [69] openssl_1.4.5               cowplot_1.1.1              
+##  [71] haven_2.4.3                 fs_1.5.0                   
+##  [73] here_1.0.1                  magrittr_2.0.1             
+##  [75] data.table_1.14.0           RSpectra_0.16-0            
+##  [77] openxlsx_4.2.4              reprex_2.0.1               
+##  [79] mvtnorm_1.1-2               hms_1.1.0                  
+##  [81] TCGAbiolinksGUI.data_1.12.0 evaluate_0.14              
+##  [83] xtable_1.8-4                XML_3.99-0.7               
+##  [85] rio_0.5.27                  emdbook_1.3.12             
+##  [87] readxl_1.3.1                gridExtra_2.3              
+##  [89] compiler_4.1.1              biomaRt_2.48.3             
+##  [91] bdsmatrix_1.3-4             maps_3.3.0                 
+##  [93] KernSmooth_2.23-20          crayon_1.4.1               
+##  [95] R.oo_1.24.0                 htmltools_0.5.2            
+##  [97] tzdb_0.1.2                  geneplotter_1.70.0         
+##  [99] visdat_0.5.3                lubridate_1.7.10           
+## [101] DBI_1.1.1                   dbplyr_2.1.1               
+## [103] proj4_1.0-10.1              MASS_7.3-54                
+## [105] rappdirs_0.3.3              car_3.0-11                 
+## [107] Matrix_1.3-4                cli_3.0.1                  
+## [109] R.methodsS3_1.8.1           pkgconfig_2.0.3            
+## [111] foreign_0.8-81              numDeriv_2016.8-1.1        
+## [113] xml2_1.3.2                  svglite_2.0.0              
+## [115] annotate_1.70.0             vipor_0.4.5                
+## [117] dqrng_0.3.0                 webshot_0.5.2              
+## [119] XVector_0.32.0              rvest_1.0.1                
+## [121] digest_0.6.27               Biostrings_2.60.2          
+## [123] rmarkdown_2.11              cellranger_1.1.0           
+## [125] DelayedMatrixStats_1.14.3   curl_4.3.2                 
+## [127] lifecycle_1.0.0             jsonlite_1.7.2             
+## [129] carData_3.0-4               askpass_1.1                
+## [131] fansi_0.5.0                 pillar_1.6.2               
+## [133] lattice_0.20-44             ggrastr_0.2.3              
+## [135] KEGGREST_1.32.0             fastmap_1.1.0              
+## [137] httr_1.4.2                  survival_3.2-13            
+## [139] glue_1.4.2                  zip_2.2.0                  
+## [141] png_0.1-7                   bit_4.0.4                  
+## [143] stringi_1.7.4               blob_1.2.2                 
+## [145] BiocSingular_1.8.1          memoise_2.0.0              
+## [147] irlba_2.3.3
+```
+
 
 
 
