@@ -7,3 +7,4 @@ Analysis of The Cancer Genome Atlas Lung Squamous Cell Carcinoma (TCGA-LUSC) dat
 - [01_DataDownload](01_DataDownload.md)
 - [02_DataExploratory](02_DataExploratory.md)
 - [03_DifferentialExpression](03_DifferentialExpression.md)
+- [04_MachineLearning](04_MachineLearning.ipynb)
